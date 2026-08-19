@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Quanto mi conosci? - Quiz Laurea</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
+      body {
+        background: radial-gradient(circle at 50% 0%, #2a1030 0%, #101820 60%, #0a0e14 100%);
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px;
+      }
+      #app {
+        width: 100%;
+        max-width: 420px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,215,0,0.25);
+        border-radius: 18px;
+        padding: 26px 22px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      }
+      h1 {
+        font-size: 21px;
+        color: #ffd700;
+        text-align: center;
+        margin-bottom: 4px;
+        text-shadow: 1px 1px 4px #000;
+      }
+      .progress-wrap {
+        margin: 16px 0 22px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 8px;
+        height: 8px;
+        overflow: hidden;
+      }
+      .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #800020, #ffd700);
+        width: 0%;
+        transition: width 0.3s ease;
+      }
+      .q-counter {
+        font-size: 12px;
+        color: #cfc0d8;
+        text-align: center;
+        margin-bottom: 6px;
+      }
+      .question {
+        font-size: 17px;
+        font-weight: 600;
+        margin-bottom: 18px;
+        line-height: 1.4;
+        min-height: 66px;
+      }
+      .options { display: flex; flex-direction: column; gap: 10px; }
+      .option-btn {
+        background: rgba(255,255,255,0.06);
+        border: 2px solid rgba(255,215,0,0.3);
+        color: white;
+        padding: 13px 14px;
+        border-radius: 12px;
+        font-size: 14.5px;
+        text-align: left;
+        cursor: pointer;
+        transition: transform 0.1s, background 0.2s, border-color 0.2s;
+      }
+      .option-btn:active { transform: scale(0.98); }
+      .option-btn.correct {
+        background: rgba(46, 160, 67, 0.35);
+        border-color: #2ea043;
+      }
+      .option-btn.wrong {
+        background: rgba(200, 40, 40, 0.35);
+        border-color: #c82828;
+      }
+      .option-btn:disabled { cursor: default; }
+      .feedback {
+        margin-top: 14px;
+        font-size: 13px;
+        color: #ffe9a8;
+        min-height: 18px;
+        line-height: 1.4;
+      }
+      .next-btn {
+        display: none;
+        margin-top: 18px;
+        width: 100%;
+        background: #800020;
+        border: 2px solid #ffd700;
+        color: white;
+        padding: 12px;
+        font-size: 16px;
+        font-weight: bold;
+        border-radius: 25px;
+        cursor: pointer;
+      }
+      .next-btn:active { transform: scale(0.97); }
+      #start-screen, #result-screen { text-align: center; }
+      #start-screen p, #result-screen p {
+        font-size: 14px;
+        color: #d9c9e0;
+        margin: 14px 0 20px;
+        line-height: 1.5;
+      }
+      .cap { font-size: 46px; margin-bottom: 6px; }
+      .btn {
+        background: #800020;
+        color: white;
+        border: 2px solid #ffd700;
+        padding: 13px 28px;
+        font-size: 17px;
+        font-weight: bold;
+        border-radius: 25px;
+        cursor: pointer;
+      }
+      .btn:active { transform: scale(0.96); }
+      .back-link {
+        display: block;
+        margin-top: 18px;
+        color: #cfcfcf;
+        font-size: 12.5px;
+        text-decoration: none;
+        opacity: 0.85;
+        text-align: center;
+      }
+      .score-big {
+        font-size: 42px;
+        font-weight: bold;
+        color: #ffd700;
+        margin: 6px 0 10px;
+      }
+      .hidden { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <!-- SCHERMATA INIZIALE -->
+      <div id="start-screen">
+        <div class="cap">🎓</div>
+        <h1>QUANTO MI CONOSCI?</h1>
+        <p>
+          Un piccolo quiz a sorpresa su di me.<br />
+          Rispondi alle domande e scopri il tuo punteggio!
+        </p>
+        <button class="btn" onclick="startQuiz()">INIZIA</button>
+      </div>
+
+      <!-- SCHERMATA QUIZ -->
+      <div id="quiz-screen" class="hidden">
+        <h1 id="quiz-title">QUANTO MI CONOSCI?</h1>
+        <div class="progress-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+        <div class="q-counter" id="q-counter">Domanda 1 di 8</div>
+        <div class="question" id="question-text"></div>
+        <div class="options" id="options-container"></div>
+        <div class="feedback" id="feedback"></div>
+        <button class="next-btn" id="next-btn" onclick="nextQuestion()">AVANTI</button>
+      </div>
+
+      <!-- SCHERMATA RISULTATO -->
+      <div id="result-screen" class="hidden">
+        <div class="cap" id="result-emoji">🏆</div>
+        <h1 id="result-title">RISULTATO</h1>
+        <div class="score-big" id="result-score">0/0</div>
+        <p id="result-text"></p>
+        <button class="btn" onclick="restartQuiz()">RIGIOCA</button>
+      </div>
+
+      <a href="index.html" class="back-link">← Torna alla dashboard</a>
+    </div>
+
+    <script>
+      // -----------------------------------------------------------------
+      // MODIFICA QUI LE DOMANDE: puoi aggiungerne, toglierne o cambiarle
+      // liberamente. "correct" è l'indice (0,1,2,3) dell'opzione giusta.
+      // -----------------------------------------------------------------
+      const QUESTIONS = [
+        {
+          q: "Di che squadra di calcio a 5 Giovanni è tifoso/gestisce l'Instagram?",
+          options: ["Il Falco", "Gli Sparvieri", "Rovigo United", "I Girasoli"],
+          correct: 0,
+          fact: "Il Falco è la squadra di futsal della zona di Rovigo di cui Giovanni gestisce la pagina Instagram!",
+        },
+        {
+          q: "Quale città europea ha visitato in un viaggio di 8 giorni?",
+          options: ["Barcellona", "Berlino", "Parigi", "Amsterdam"],
+          correct: 2,
+          fact: "Un tour di 8 giorni tra musei, quartieri e ristoranti parigini.",
+        },
+        {
+          q: "Che tipo di scheda elettronica sta usando in un suo progetto hobbistico?",
+          options: ["Raspberry Pi", "Arduino Uno", "ESP32 con display TFT", "STM32 Nucleo"],
+          correct: 2,
+          fact: "Un ESP32-2432S028, la famosa \"Cheap Yellow Display\", collegato via Arduino IDE.",
+        },
+        {
+          q: "Su quale materia universitaria si è preparato ripassando root locus e Routh-Hurwitz?",
+          options: ["Elettronica digitale", "Controlli automatici", "Fisica tecnica", "Analisi matematica"],
+          correct: 1,
+          fact: "Controlli automatici: funzioni di trasferimento, stabilità e risposta impulsiva.",
+        },
+        {
+          q: "Oltre a calcio e tecnologia, quale altro argomento interessa a Giovanni?",
+          options: ["Astrologia", "Finanza personale", "Cucina molecolare", "Fotografia analogica"],
+          correct: 1,
+          fact: "Interesse ricorrente per temi come l'interesse composto e la gestione del denaro.",
+        },
+        {
+          q: "In che ruolo si occupa dei social del Falco?",
+          options: ["Solo giocatore", "Gestore della pagina Instagram", "Arbitro", "Allenatore"],
+          correct: 1,
+          fact: "Cura contenuti, grafiche per gli annunci partita e caption per l'account Instagram.",
+        },
+        {
+          q: "Quale hobby all'aperto compare tra i suoi interessi?",
+          options: ["Escursionismo", "Vela", "Arrampicata su ghiaccio", "Golf"],
+          correct: 0,
+          fact: "Escursionismo tra gli interessi, insieme a tecnologia e finanza.",
+        },
+        {
+          q: "In che lingua studia e lavora principalmente Giovanni?",
+          options: ["Solo inglese", "Italiano, ma se la cava bene anche in inglese", "Francese", "Spagnolo"],
+          correct: 1,
+          fact: "Italiano come lingua principale, con un buon uso anche dell'inglese.",
+        },
+      ];
+      // -----------------------------------------------------------------
+
+      let currentIndex = 0;
+      let score = 0;
+      let answered = false;
+
+      const startScreen = document.getElementById("start-screen");
+      const quizScreen = document.getElementById("quiz-screen");
+      const resultScreen = document.getElementById("result-screen");
+      const questionText = document.getElementById("question-text");
+      const optionsContainer = document.getElementById("options-container");
+      const feedback = document.getElementById("feedback");
+      const nextBtn = document.getElementById("next-btn");
+      const progressBar = document.getElementById("progress-bar");
+      const qCounter = document.getElementById("q-counter");
+
+      function startQuiz() {
+        currentIndex = 0;
+        score = 0;
+        startScreen.classList.add("hidden");
+        resultScreen.classList.add("hidden");
+        quizScreen.classList.remove("hidden");
+        showQuestion();
+      }
+
+      function showQuestion() {
+        answered = false;
+        feedback.innerText = "";
+        nextBtn.style.display = "none";
+
+        const item = QUESTIONS[currentIndex];
+        questionText.innerText = item.q;
+        qCounter.innerText = `Domanda ${currentIndex + 1} di ${QUESTIONS.length}`;
+        progressBar.style.width = `${(currentIndex / QUESTIONS.length) * 100}%`;
+
+        optionsContainer.innerHTML = "";
+        item.options.forEach((opt, i) => {
+          const btn = document.createElement("button");
+          btn.className = "option-btn";
+          btn.innerText = opt;
+          btn.onclick = () => selectAnswer(i);
+          optionsContainer.appendChild(btn);
+        });
+      }
+
+      function selectAnswer(i) {
+        if (answered) return;
+        answered = true;
+        const item = QUESTIONS[currentIndex];
+        const buttons = optionsContainer.querySelectorAll(".option-btn");
+
+        buttons.forEach((b, idx) => {
+          b.disabled = true;
+          if (idx === item.correct) b.classList.add("correct");
+          else if (idx === i) b.classList.add("wrong");
+        });
+
+        if (i === item.correct) {
+          score++;
+          feedback.innerText = "✅ Esatto! " + item.fact;
+        } else {
+          feedback.innerText = "❌ Non proprio. " + item.fact;
+        }
+
+        nextBtn.style.display = "block";
+        nextBtn.innerText = currentIndex === QUESTIONS.length - 1 ? "VEDI RISULTATO" : "AVANTI";
+      }
+
+      function nextQuestion() {
+        currentIndex++;
+        if (currentIndex >= QUESTIONS.length) {
+          showResult();
+        } else {
+          showQuestion();
+        }
+      }
+
+      function showResult() {
+        progressBar.style.width = "100%";
+        quizScreen.classList.add("hidden");
+        resultScreen.classList.remove("hidden");
+
+        const total = QUESTIONS.length;
+        document.getElementById("result-score").innerText = `${score}/${total}`;
+
+        let emoji, title, text;
+        const pct = score / total;
+        if (pct === 1) {
+          emoji = "🏆";
+          title = "PERFETTO!";
+          text = "Mi conosci a menadito. Complimenti!";
+        } else if (pct >= 0.6) {
+          emoji = "🎓";
+          title = "OTTIMO!";
+          text = "Mi conosci parecchio bene!";
+        } else if (pct >= 0.3) {
+          emoji = "🙂";
+          title = "NON MALE";
+          text = "Qualche lacuna, ma ci siamo quasi!";
+        } else {
+          emoji = "😅";
+          title = "DA RIVEDERE";
+          text = "Forse è ora di sentirci più spesso!";
+        }
+        document.getElementById("result-emoji").innerText = emoji;
+        document.getElementById("result-title").innerText = title;
+        document.getElementById("result-text").innerText = text;
+      }
+
+      function restartQuiz() {
+        resultScreen.classList.add("hidden");
+        startScreen.classList.remove("hidden");
+      }
+    </script>
+  </body>
+</html>

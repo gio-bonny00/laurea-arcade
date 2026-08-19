@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>La Laurea di Giovanni 🎓</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-tap-highlight-color: transparent; }
+      html, body { height: 100%; }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: radial-gradient(circle at 50% 0%, #2a1030 0%, #101820 60%, #0a0e14 100%);
+        color: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        overflow: hidden;
+        position: relative;
+      }
+      #confetti-canvas {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        pointer-events: none;
+      }
+      .content {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+        padding: 24px;
+        max-width: 420px;
+        width: 100%;
+      }
+      .cap {
+        font-size: 54px;
+        margin-bottom: 6px;
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+      }
+      h1 {
+        font-size: 26px;
+        color: #ffd700;
+        text-shadow: 2px 2px 6px #000;
+        margin-bottom: 6px;
+        letter-spacing: 0.5px;
+      }
+      p.subtitle {
+        font-size: 14px;
+        color: #d9c9e0;
+        margin-bottom: 30px;
+        line-height: 1.5;
+      }
+      .menu {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .game-btn {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        background: linear-gradient(135deg, #800020, #5c0016);
+        border: 2px solid #ffd700;
+        border-radius: 16px;
+        padding: 16px 18px;
+        color: white;
+        text-decoration: none;
+        text-align: left;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+        transition: transform 0.12s ease, box-shadow 0.12s ease;
+      }
+      .game-btn:active {
+        transform: scale(0.96);
+        box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+      }
+      .game-icon {
+        font-size: 30px;
+        min-width: 42px;
+        text-align: center;
+      }
+      .game-info .title {
+        font-size: 17px;
+        font-weight: bold;
+        color: #ffd700;
+      }
+      .game-info .desc {
+        font-size: 12.5px;
+        color: #eee;
+        opacity: 0.85;
+        margin-top: 2px;
+      }
+      footer {
+        margin-top: 34px;
+        font-size: 11px;
+        color: #8a8a9a;
+        position: relative;
+        z-index: 2;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="confetti-canvas"></canvas>
+    <div class="content">
+      <div class="cap">🎓</div>
+      <h1>DOTTORE GIOVANNI!</h1>
+      <p class="subtitle">
+        Il regalo di laurea è un piccolo arcade tutto tuo.<br />
+        Scegli un gioco e divertiti.
+      </p>
+      <div class="menu">
+        <a class="game-btn" href="flappy.html">
+          <div class="game-icon">📘</div>
+          <div class="game-info">
+            <div class="title">Laurea Flappy</div>
+            <div class="desc">Schiva i libri e vola verso la laurea</div>
+          </div>
+        </a>
+        <a class="game-btn" href="runner.html">
+          <div class="game-icon">🏃</div>
+          <div class="game-info">
+            <div class="title">Runner Infinito</div>
+            <div class="desc">Salta esami, sveglie e scadenze all'infinito</div>
+          </div>
+        </a>
+        <a class="game-btn" href="quiz.html">
+          <div class="game-icon">❓</div>
+          <div class="game-info">
+            <div class="title">Quanto mi conosci?</div>
+            <div class="desc">Quiz a sorpresa su Giovanni</div>
+          </div>
+        </a>
+      </div>
+    </div>
+    <footer>Fatto con ❤️ per il giorno della laurea</footer>
+
+    <script>
+      const canvas = document.getElementById("confetti-canvas");
+      const ctx = canvas.getContext("2d");
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener("resize", resize);
+
+      const colors = ["#ffd700", "#800020", "#ffffff", "#4A90D9"];
+      const pieces = Array.from({ length: 60 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * -canvas.height,
+        size: 4 + Math.random() * 5,
+        speed: 0.6 + Math.random() * 1.6,
+        drift: Math.random() * 1.4 - 0.7,
+        rot: Math.random() * Math.PI,
+        rotSpeed: (Math.random() - 0.5) * 0.08,
+        color: colors[Math.floor(Math.random() * colors.length)],
+      }));
+
+      function loop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach((p) => {
+          p.y += p.speed;
+          p.x += p.drift;
+          p.rot += p.rotSpeed;
+          if (p.y > canvas.height) {
+            p.y = -10;
+            p.x = Math.random() * canvas.width;
+          }
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.5);
+          ctx.restore();
+        });
+        requestAnimationFrame(loop);
+      }
+      loop();
+    </script>
+  </body>
+</html>
