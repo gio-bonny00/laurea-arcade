@@ -80,13 +80,13 @@
   </head>
   <body>
     <div id="game-container">
-      <canvas id="gameCanvas" width="360" height="500"></canvas>
+      <canvas id="gameCanvas" width="360" height="640"></canvas>
       <div id="score-display">0</div>
       <div id="ui-layer">
         <h1 id="title">CORSA ALLA LAUREA</h1>
         <p id="description">
           Tocca lo schermo o premi la barra spaziatrice per saltare<br />
-          esami, sveglie e tazzine di caffè. Occhio alla velocità! ⏰
+          esami, sveglie, caffè e persino il letto. Occhio alla velocità! ⏰
         </p>
         <button class="btn" id="start-btn">CORRI</button>
         <a href="index.html" class="back-link">← Torna alla dashboard</a>
@@ -131,6 +131,7 @@
         { emoji: "⏰", w: 28, h: 28, label: "sveglia" },
         { emoji: "☕", w: 26, h: 30, label: "caffè" },
         { emoji: "📝", w: 26, h: 30, label: "scadenza" },
+        { emoji: "🛏️", w: 34, h: 30, label: "letto" },
       ];
 
       function jump() {
