@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Pioggia di 30 e Lode</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
+      body {
+        background: #101820;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        overflow: hidden;
+      }
+      #game-container {
+        position: relative;
+        width: min(100vw, 56.25vh, 360px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+        border-radius: 12px;
+        overflow: hidden;
+        touch-action: none;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+        background: linear-gradient(to bottom, #2a1030 0%, #3a1535 55%, #101820 100%);
+      }
+      #ui-layer {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: rgba(0, 0, 0, 0.55);
+        color: white;
+        text-align: center;
+        padding: 20px;
+      }
+      h1 { font-size: 24px; margin-bottom: 10px; color: #ffd700; text-shadow: 2px 2px 4px #000; }
+      p { font-size: 14.5px; margin-bottom: 18px; line-height: 1.5; }
+      .btn {
+        background: #800020;
+        color: white;
+        border: 2px solid #ffd700;
+        padding: 12px 26px;
+        font-size: 18px;
+        font-weight: bold;
+        border-radius: 25px;
+        cursor: pointer;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        transition: transform 0.1s;
+      }
+      .btn:active { transform: scale(0.94); }
+      .back-link { display: block; margin-top: 16px; color: #cfcfcf; font-size: 12.5px; text-decoration: none; opacity: 0.85; }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <canvas id="gameCanvas" width="360" height="640"></canvas>
+      <div id="ui-layer">
+        <h1 id="title">PIOGGIA DI 30 E LODE</h1>
+        <p id="description">
+          Muovi il dito (o le frecce) per spostare Giovanni.<br />
+          Prendi 📚 💯 🎓 e schiva 💣 🛏️ ❌<br />
+          Hai 3 vite: ❤️ ne restituisce una!
+        </p>
+        <button class="btn" id="start-btn">GIOCA</button>
+        <a href="index.html" class="back-link">← Torna alla dashboard</a>
+      </div>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("gameCanvas");
+      const ctx = canvas.getContext("2d");
+      const ui = document.getElementById("ui-layer");
+      const titleText = document.getElementById("title");
+      const descText = document.getElementById("description");
+      const startBtn = document.getElementById("start-btn");
+
+      const W = canvas.width, H = canvas.height, FLOOR = H - 50;
+      const BEST_KEY = "pioggiaLaureaBest";
+
+      let state = "START"; // START, PLAYING, GAMEOVER
+      let score = 0, lives = 3, flash = 0, spawnIn = 40;
+      let best = Number(localStorage.getItem(BEST_KEY) || 0);
+      let items = [], pops = [], targetX = W / 2;
+      const keys = { left: false, right: false };
+      const player = { x: W / 2, w: 64, h: 44 };
+
+      const GOOD = [
+        { e: "📚", p: 1, w: 0.6 },
+        { e: "💯", p: 2, w: 0.3 },
+        { e: "🎓", p: 5, w: 0.1 },
+      ];
+      const BAD = ["💣", "🛏️", "❌"];
+
+      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+      function pickGood() {
+        let r = Math.random();
+        for (const g of GOOD) { if ((r -= g.w) < 0) return g; }
+        return GOOD[0];
+      }
+
+      function spawn() {
+        const diff = Math.min(1, score / 80);
+        const r = Math.random();
+        const it = {
+          x: 24 + Math.random() * (W - 48),
+          y: -30,
+          vy: (2.2 + diff * 3.4) * (0.85 + Math.random() * 0.3),
+        };
+        if (r < 0.28 + 0.2 * diff) {
+          it.bad = true;
+          it.e = BAD[Math.floor(Math.random() * BAD.length)];
+        } else if (r > 0.975 && lives < 3) {
+          it.heart = true;
+          it.e = "❤️";
+        } else {
+          const g = pickGood();
+          it.e = g.e;
+          it.p = g.p;
+        }
+        items.push(it);
+      }
+
+      function pop(x, y, text, color) { pops.push({ x, y, text, color, life: 1 }); }
+
+      function startGame() {
+        state = "PLAYING";
+        score = 0; lives = 3; flash = 0; spawnIn = 40;
+        items = []; pops = [];
+        player.x = targetX = W / 2;
+        ui.style.display = "none";
+      }
+
+      function gameOver() {
+        state = "GAMEOVER";
+        const record = score > best;
+        if (record) { best = score; localStorage.setItem(BEST_KEY, String(best)); }
+        const rank = score >= 100 ? "Dottore con lode 🏆" : score >= 60 ? "Magistrale 🎓" : score >= 30 ? "Triennale 📘" : "Matricola 🐣";
+        titleText.innerText = record ? "NUOVO RECORD! 🎉" : "SESSIONE CHIUSA!";
+        descText.innerHTML = `Punteggio: <b>${score}</b><br>Record: <b>${best}</b><br>Livello raggiunto: <b>${rank}</b>`;
+        startBtn.innerText = "RIPROVA";
+        ui.style.display = "flex";
+      }
+
+      function update(dt) {
+        if (keys.left) targetX -= 7 * dt;
+        if (keys.right) targetX += 7 * dt;
+        targetX = clamp(targetX, player.w / 2, W - player.w / 2);
+        player.x += (targetX - player.x) * Math.min(1, 0.3 * dt);
+
+        spawnIn -= dt;
+        if (spawnIn <= 0) {
+          spawn();
+          spawnIn = Math.max(16, 52 - score * 0.45) * (0.7 + Math.random() * 0.6);
+        }
+
+        const top = FLOOR - player.h;
+        for (const it of items) {
+          it.y += it.vy * dt;
+          if (!it.done && it.y > top - 6 && it.y < top + 24 && Math.abs(it.x - player.x) < player.w / 2 + 8) {
+            it.done = true;
+            if (it.bad) {
+              lives--; flash = 1;
+              pop(it.x, top - 10, "-1 ❤️", "#ff6b6b");
+            } else if (it.heart) {
+              lives = Math.min(3, lives + 1);
+              pop(it.x, top - 10, "+1 ❤️", "#ff9ab0");
+            } else {
+              score += it.p;
+              pop(it.x, top - 10, "+" + it.p, "#ffd700");
+            }
+          }
+        }
+        items = items.filter((it) => !it.done && it.y < H + 30);
+        pops.forEach((p) => { p.y -= 0.8 * dt; p.life -= 0.02 * dt; });
+        pops = pops.filter((p) => p.life > 0);
+        flash = Math.max(0, flash - 0.05 * dt);
+        if (lives <= 0) gameOver();
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        // terreno
+        ctx.fillStyle = "#1b1226";
+        ctx.fillRect(0, FLOOR, W, H - FLOOR);
+        ctx.fillStyle = "#ffd700";
+        ctx.fillRect(0, FLOOR, W, 3);
+
+        // oggetti
+        ctx.font = "30px serif";
+        items.forEach((it) => ctx.fillText(it.e, it.x, it.y));
+
+        // Giovanni: toga, testa, tocco
+        const px = player.x, top = FLOOR - player.h;
+        ctx.fillStyle = "#800020";
+        ctx.strokeStyle = "#ffd700";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(px - 18, top + 20);
+        ctx.lineTo(px + 18, top + 20);
+        ctx.lineTo(px + player.w / 2, FLOOR);
+        ctx.lineTo(px - player.w / 2, FLOOR);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#f5cba7";
+        ctx.beginPath();
+        ctx.arc(px, top + 14, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = "28px serif";
+        ctx.fillText("🎓", px, top + 3);
+
+        // popup
+        ctx.font = "bold 18px 'Segoe UI', sans-serif";
+        pops.forEach((p) => {
+          ctx.globalAlpha = Math.max(0, p.life);
+          ctx.fillStyle = p.color;
+          ctx.fillText(p.text, p.x, p.y);
+        });
+        ctx.globalAlpha = 1;
+
+        // HUD
+        if (state === "PLAYING") {
+          ctx.font = "bold 32px 'Courier New', monospace";
+          ctx.fillStyle = "#ffd700";
+          ctx.fillText(String(score), W / 2, 36);
+          ctx.font = "20px serif";
+          ctx.textAlign = "right";
+          ctx.fillText("❤️".repeat(lives) + "🖤".repeat(3 - lives), W - 12, 36);
+          ctx.textAlign = "left";
+          ctx.font = "12px 'Segoe UI', sans-serif";
+          ctx.fillStyle = "#cfcfcf";
+          ctx.fillText("Record " + best, 12, 36);
+        }
+
+        if (flash > 0) {
+          ctx.fillStyle = `rgba(255,60,60,${flash * 0.35})`;
+          ctx.fillRect(0, 0, W, H);
+        }
+      }
+
+      let last = 0;
+      function loop(ts) {
+        const dt = Math.min(2.5, (ts - last) / 16.667) || 1;
+        last = ts;
+        if (state === "PLAYING") update(dt);
+        draw();
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+
+      function setTarget(e) {
+        const r = canvas.getBoundingClientRect();
+        targetX = ((e.clientX - r.left) / r.width) * W;
+      }
+      canvas.addEventListener("pointerdown", (e) => { e.preventDefault(); setTarget(e); }, { passive: false });
+      canvas.addEventListener("pointermove", setTarget);
+
+      window.addEventListener("keydown", (e) => {
+        if (e.code === "ArrowLeft" || e.code === "KeyA") keys.left = true;
+        if (e.code === "ArrowRight" || e.code === "KeyD") keys.right = true;
+        if ((e.code === "Space" || e.code === "Enter") && ui.style.display !== "none") {
+          e.preventDefault();
+          startGame();
+        }
+      });
+      window.addEventListener("keyup", (e) => {
+        if (e.code === "ArrowLeft" || e.code === "KeyA") keys.left = false;
+        if (e.code === "ArrowRight" || e.code === "KeyD") keys.right = false;
+      });
+
+      startBtn.addEventListener("click", (e) => { e.stopPropagation(); startGame(); });
+    </script>
+  </body>
+</html>
