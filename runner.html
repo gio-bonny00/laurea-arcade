@@ -18,6 +18,7 @@
       }
       #game-container {
         position: relative;
+        width: min(100vw, 56.25vh, 360px);
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
         border-radius: 12px;
         overflow: hidden;
@@ -25,12 +26,13 @@
       }
       canvas {
         display: block;
+        width: 100%;
+        height: auto;
         background: linear-gradient(to bottom, #ffb56b 0%, #ffe0b3 55%, #fff3dd 100%);
       }
       #ui-layer {
         position: absolute;
-        top: 0; left: 0;
-        width: 100%; height: 100%;
+        inset: 0;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -55,14 +57,7 @@
         transition: transform 0.1s;
       }
       .btn:active { transform: scale(0.94); }
-      .back-link {
-        display: block;
-        margin-top: 16px;
-        color: #cfcfcf;
-        font-size: 12.5px;
-        text-decoration: none;
-        opacity: 0.85;
-      }
+      .back-link { display: block; margin-top: 16px; color: #cfcfcf; font-size: 12.5px; text-decoration: none; opacity: 0.85; }
       #score-display {
         position: absolute;
         top: 14px; left: 0;
@@ -86,7 +81,8 @@
         <h1 id="title">CORSA ALLA LAUREA</h1>
         <p id="description">
           Tocca lo schermo o premi la barra spaziatrice per saltare<br />
-          esami, sveglie, caffè e persino il letto. Occhio alla velocità! ⏰
+          esami, sveglie, caffè e persino il letto.<br />
+          Se arriva una ✉️ in volo, resta giù! ⏰
         </p>
         <button class="btn" id="start-btn">CORRI</button>
         <a href="index.html" class="back-link">← Torna alla dashboard</a>
@@ -105,13 +101,17 @@
       const W = canvas.width;
       const H = canvas.height;
       const GROUND_Y = H - 60;
+      const BEST_KEY = "runnerLaureaBest";
 
-      let gameState = "START"; // START, PLAYING, GAMEOVER
+      let gameState = "START"; // START, PLAYING, DEAD, GAMEOVER
       let score = 0;
-      let highScore = Number(localStorage.getItem("runnerLaureaBest") || 0);
+      let highScore = Number(localStorage.getItem(BEST_KEY) || 0);
       let speed = 4.2;
-      let frameCount = 0;
-      let groundOffset = 0;
+      let groundOffset = 0, hillOffset = 0;
+      let distSinceSpawn = 0, nextGap = 220;
+      let jumpBuffer = 0, deadTimer = 0, shake = 0, overAt = 0;
+      let banner = { t: "", life: 0 };
+      let particles = [];
 
       const player = {
         x: 55,
@@ -127,32 +127,53 @@
 
       let obstacles = [];
       const obstacleTypes = [
-        { emoji: "📚", w: 30, h: 32, label: "esame" },
-        { emoji: "⏰", w: 28, h: 28, label: "sveglia" },
-        { emoji: "☕", w: 26, h: 30, label: "caffè" },
-        { emoji: "📝", w: 26, h: 30, label: "scadenza" },
-        { emoji: "🛏️", w: 34, h: 30, label: "letto" },
+        { emoji: "📚", w: 30, h: 32 },
+        { emoji: "⏰", w: 28, h: 28 },
+        { emoji: "☕", w: 26, h: 30 },
+        { emoji: "📝", w: 26, h: 30 },
+        { emoji: "🛏️", w: 34, h: 30 },
       ];
 
+      const MILESTONES = {
+        5: "Matricola 🐣",
+        15: "Primo anno finito!",
+        30: "Triennale 📘",
+        50: "Tesi in corso ✍️",
+        80: "Discussione! 🎤",
+        120: "DOTTORE! 🎓",
+      };
+
+      const clouds = Array.from({ length: 5 }, () => ({
+        x: Math.random() * W,
+        y: 40 + Math.random() * 180,
+        s: 0.7 + Math.random() * 0.8,
+        v: 0.2 + Math.random() * 0.35,
+      }));
+
+      function showRecordOnStart() {
+        if (highScore > 0) descText.innerHTML += `<br><b>Record: ${highScore}</b>`;
+      }
+      showRecordOnStart();
+
       function jump() {
-        if (gameState === "PLAYING" && player.onGround) {
-          player.vy = player.jumpForce;
-          player.onGround = false;
-        }
+        if (gameState === "PLAYING") jumpBuffer = 8; // salto "prenotato" se premi poco prima di atterrare
       }
 
-      function handleStart() {
-        if (uiLayer.style.display !== "none") {
-          startGame();
-        } else {
-          jump();
-        }
+      function tryStart() {
+        if (gameState === "DEAD") return;
+        if (gameState === "GAMEOVER" && performance.now() - overAt < 500) return;
+        startGame();
+      }
+
+      function handleAction() {
+        if (uiLayer.style.display !== "none") tryStart();
+        else jump();
       }
 
       window.addEventListener("keydown", (e) => {
-        if (e.code === "Space") {
+        if (e.code === "Space" || e.code === "ArrowUp") {
           e.preventDefault();
-          handleStart();
+          if (!e.repeat) handleAction();
         }
       });
 
@@ -163,7 +184,7 @@
 
       startBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        startGame();
+        tryStart();
       });
 
       function startGame() {
@@ -172,21 +193,33 @@
         player.vy = 0;
         player.onGround = true;
         obstacles = [];
+        particles = [];
+        banner.life = 0;
         score = 0;
         speed = 4.2;
-        frameCount = 0;
+        distSinceSpawn = 0;
+        nextGap = 220;
+        jumpBuffer = 0;
+        shake = 0;
 
         scoreDisplay.innerText = "0";
         scoreDisplay.style.display = "block";
         uiLayer.style.display = "none";
       }
 
-      function gameOver() {
+      function die() {
+        gameState = "DEAD";
+        deadTimer = 40;
+        shake = 12;
+      }
+
+      function showGameOver() {
         gameState = "GAMEOVER";
+        overAt = performance.now();
         const newRecord = score > highScore;
         if (newRecord) {
           highScore = score;
-          localStorage.setItem("runnerLaureaBest", String(highScore));
+          localStorage.setItem(BEST_KEY, String(highScore));
         }
         titleText.innerText = newRecord ? "NUOVO RECORD! 🎉" : "TI HANNO RIMANDATO!";
         descText.innerHTML =
@@ -198,66 +231,129 @@
       }
 
       function spawnObstacle() {
-        const type = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
-        obstacles.push({
-          x: W + 20,
-          w: type.w,
-          h: type.h,
-          emoji: type.emoji,
-          passed: false,
-        });
+        // dopo l'ottavo ostacolo ogni tanto arriva una mail in volo: bisogna NON saltare
+        if (score >= 8 && Math.random() < 0.25) {
+          obstacles.push({ x: W + 20, w: 30, h: 26, y: GROUND_Y - 58 - 26, emoji: "✉️", passed: false });
+          return;
+        }
+        const t = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
+        obstacles.push({ x: W + 20, w: t.w, h: t.h, y: GROUND_Y - t.h, emoji: t.emoji, passed: false });
       }
 
-      let nextSpawnIn = 70;
+      function dust() {
+        for (let i = 0; i < 6; i++) {
+          particles.push({
+            x: player.x + player.width / 2,
+            y: GROUND_Y - 2,
+            vx: (Math.random() - 0.7) * 3,
+            vy: -Math.random() * 1.6,
+            life: 1,
+          });
+        }
+      }
 
-      function update() {
-        groundOffset = (groundOffset - speed) % 30;
+      // dt = 1 equivale a un frame a 60 Hz, così il gioco va uguale a 60, 90 o 120 Hz
+      function update(dt) {
+        groundOffset = (groundOffset - speed * dt) % 30;
+        hillOffset += speed * 0.25 * dt;
+        clouds.forEach((c) => {
+          c.x -= c.v * dt;
+          if (c.x < -60) c.x = W + 60;
+        });
+        particles.forEach((p) => {
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.life -= 0.05 * dt;
+        });
+        particles = particles.filter((p) => p.life > 0);
+        if (banner.life > 0) banner.life -= dt;
 
+        if (gameState === "DEAD") {
+          deadTimer -= dt;
+          shake = Math.max(0, shake - dt);
+          if (deadTimer <= 0) showGameOver();
+          return;
+        }
         if (gameState !== "PLAYING") return;
-        frameCount++;
 
         // difficoltà crescente
         speed = Math.min(9, 4.2 + score * 0.06);
 
-        // fisica salto
-        player.vy += player.gravity;
-        player.y += player.vy;
+        // salto (con buffer)
+        jumpBuffer = Math.max(0, jumpBuffer - dt);
+        if (jumpBuffer > 0 && player.onGround) {
+          player.vy = player.jumpForce;
+          player.onGround = false;
+          jumpBuffer = 0;
+        }
+
+        player.vy += player.gravity * dt;
+        player.y += player.vy * dt;
         if (player.y >= GROUND_Y - player.height) {
           player.y = GROUND_Y - player.height;
+          if (!player.onGround) dust();
           player.vy = 0;
           player.onGround = true;
         }
+        if (player.onGround) player.legPhase += 0.35 * dt;
 
-        if (player.onGround) {
-          player.legPhase += 0.35;
-        }
-
-        nextSpawnIn--;
-        if (nextSpawnIn <= 0) {
+        // ostacoli distanziati in base alla velocità, così il salto è sempre fattibile
+        distSinceSpawn += speed * dt;
+        if (distSinceSpawn >= nextGap) {
           spawnObstacle();
-          nextSpawnIn = Math.max(38, 75 - Math.floor(score / 3)) + Math.floor(Math.random() * 25);
+          distSinceSpawn = 0;
+          nextGap = speed * (26 + Math.random() * 18) + 60;
         }
 
+        const px = player.x + 6, pw = player.width - 12;
+        const py = player.y + 6, ph = player.height - 8;
         for (let i = obstacles.length - 1; i >= 0; i--) {
           const o = obstacles[i];
-          o.x -= speed;
+          o.x -= speed * dt;
 
-          const ox = o.x, oy = GROUND_Y - o.h;
-          const px = player.x + 5, pw = player.width - 10;
-          const py = player.y + 4, ph = player.height - 6;
-
-          if (px + pw > ox && px < ox + o.w && py + ph > oy) {
-            gameOver();
+          const ox = o.x + 4, ow = o.w - 8, oy = o.y + 4, oh = o.h - 8;
+          if (px < ox + ow && px + pw > ox && py < oy + oh && py + ph > oy) {
+            die();
+            return;
           }
 
           if (!o.passed && o.x + o.w < player.x) {
             o.passed = true;
             score++;
             scoreDisplay.innerText = score;
+            if (MILESTONES[score]) banner = { t: MILESTONES[score], life: 120 };
           }
 
           if (o.x + o.w < -20) obstacles.splice(i, 1);
         }
+      }
+
+      function drawBackground() {
+        // il cielo vira verso il tramonto man mano che si va avanti
+        const a = Math.min(0.5, Math.max(0, (score - 20) / 120));
+        if (a > 0) {
+          ctx.fillStyle = `rgba(50,20,90,${a})`;
+          ctx.fillRect(0, 0, W, GROUND_Y);
+        }
+
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        clouds.forEach((c) => {
+          ctx.beginPath();
+          ctx.ellipse(c.x, c.y, 28 * c.s, 10 * c.s, 0, 0, Math.PI * 2);
+          ctx.ellipse(c.x - 16 * c.s, c.y + 3 * c.s, 16 * c.s, 8 * c.s, 0, 0, Math.PI * 2);
+          ctx.ellipse(c.x + 18 * c.s, c.y + 3 * c.s, 18 * c.s, 8 * c.s, 0, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        ctx.fillStyle = "rgba(160,100,60,0.35)";
+        ctx.beginPath();
+        ctx.moveTo(0, GROUND_Y);
+        for (let x = 0; x <= W; x += 8) {
+          const hy = GROUND_Y - 30 - Math.sin((x + hillOffset) / 45) * 14 - Math.sin((x + hillOffset) / 17) * 5;
+          ctx.lineTo(x, hy);
+        }
+        ctx.lineTo(W, GROUND_Y);
+        ctx.fill();
       }
 
       function drawGround() {
@@ -290,7 +386,7 @@
         // gambe animate (solo a terra)
         ctx.strokeStyle = "#1a1a2e";
         ctx.lineWidth = 5;
-        const legSwing = player.onGround ? Math.sin(player.legPhase) * 8 : 0;
+        const legSwing = player.onGround && gameState === "PLAYING" ? Math.sin(player.legPhase) * 8 : 0;
         ctx.beginPath();
         ctx.moveTo(-6, player.height / 2 - 8);
         ctx.lineTo(-6 + legSwing, player.height / 2 + 6);
@@ -321,29 +417,66 @@
       }
 
       function drawObstacles() {
-        ctx.font = "26px sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         obstacles.forEach((o) => {
           ctx.font = o.h + "px sans-serif";
-          ctx.fillText(o.emoji, o.x + o.w / 2, GROUND_Y - o.h / 2 + 4);
+          ctx.fillText(o.emoji, o.x + o.w / 2, o.y + o.h / 2 + 4);
         });
       }
 
       function draw() {
         ctx.clearRect(0, 0, W, H);
+        ctx.save();
+        if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+
+        drawBackground();
         drawGround();
         drawObstacles();
+
+        ctx.fillStyle = "#8a5a24";
+        particles.forEach((p) => {
+          ctx.globalAlpha = Math.max(0, p.life);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 2.5 * p.life + 1, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+
         if (gameState !== "START") drawPlayer();
+        ctx.restore();
+
+        if (banner.life > 0) {
+          ctx.globalAlpha = Math.min(1, banner.life / 30);
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.font = "bold 24px 'Segoe UI', sans-serif";
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = "rgba(255,255,255,0.8)";
+          ctx.strokeText(banner.t, W / 2, 100);
+          ctx.fillStyle = "#800020";
+          ctx.fillText(banner.t, W / 2, 100);
+          ctx.globalAlpha = 1;
+        }
+
+        if (gameState === "PLAYING") {
+          ctx.textAlign = "left";
+          ctx.textBaseline = "alphabetic";
+          ctx.font = "12px 'Segoe UI', sans-serif";
+          ctx.fillStyle = "#3a2410";
+          ctx.fillText("Record " + highScore, 12, 24);
+        }
       }
 
-      function gameLoop() {
-        update();
+      let last = 0;
+      function gameLoop(ts) {
+        const dt = Math.min(2.5, (ts - last) / 16.667) || 1;
+        last = ts;
+        update(dt);
         draw();
         requestAnimationFrame(gameLoop);
       }
-
-      gameLoop();
+      requestAnimationFrame(gameLoop);
     </script>
   </body>
 </html>
