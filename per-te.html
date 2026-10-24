@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#d93a52">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Per te</title>
+  <style>
+    :root {
+      --bg: #d93a52;
+      --ink: #fff6ee;
+      --wine: #3d0c22;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN", Nunito, system-ui, sans-serif;
+    }
+
+    main {
+      width: 100%;
+      max-width: 960px;
+      position: relative;
+      z-index: 1;
+      min-height: 100svh;
+      margin-inline: auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding:
+        max(44px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(44px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+    }
+
+    #pioggia {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .cade {
+      position: absolute;
+      top: -3rem;
+      left: var(--x);
+      font-size: var(--s);
+      animation: cade var(--d) linear forwards;
+    }
+
+    @keyframes cade {
+      from {
+        transform: translate3d(0, 0, 0) rotate(var(--r0));
+      }
+
+      to {
+        transform: translate3d(var(--dx), 110vh, 0) rotate(var(--r1));
+      }
+    }
+
+    #stage {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: clamp(2.3rem, 10.5vw, 6.2rem);
+      font-weight: 800;
+      line-height: 1.02;
+      letter-spacing: -0.02em;
+    }
+
+    .frase {
+      text-wrap: balance;
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .frase.esce {
+      opacity: 0;
+      transform: translateY(-0.4em);
+    }
+
+    .w {
+      display: inline-block;
+      opacity: 0;
+      transform: translateY(0.4em);
+      filter: blur(6px);
+      transition: opacity 0.7s ease, transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1), filter 0.7s ease;
+      transition-delay: calc(var(--i) * 0.16s);
+    }
+
+    .w.on {
+      opacity: 1;
+      transform: none;
+      filter: none;
+    }
+
+    .azioni {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 1.5rem;
+      opacity: 0;
+      transition: opacity 0.8s ease;
+    }
+
+    .azioni:empty {
+      display: none;
+    }
+
+    .azioni.on {
+      opacity: 1;
+    }
+
+    .azioni a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 48px;
+      padding: 12px 22px;
+      border-radius: 999px;
+      background: var(--wine);
+      color: var(--ink);
+      font-size: 1.05rem;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .azioni a:active {
+      transform: scale(0.97);
+    }
+
+    .azioni a:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: 3px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .w {
+        transform: none;
+        filter: none;
+        transition-delay: 0s;
+      }
+
+      .frase.esce {
+        transform: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="pioggia" aria-hidden="true"></div>
+  <main>
+    <div id="stage" aria-live="polite"></div>
+    <nav class="azioni" id="azioni" aria-label="Contatti"></nav>
+  </main>
+  <script>
+    // Compila questi due campi: i pulsanti compaiono solo se sono riempiti.
+    const TELEFONO = "+393468195890"; // es. "+393331234567"
+    const FOTO = "";     // link all'album o alla pagina con le foto
+
+    const FRASI = [
+      "Ciao amore",
+      "Ti ringrazio per avermi supportato in questi anni",
+      "e soprattutto sopportato..",
+      "Se sono arrivato a questo traguardo",
+      "è anche merito tuo",
+      "Grazie",
+      "Ti amo, tuo Bonny <3"
+    ];
+
+    const stage = document.getElementById("stage");
+    const azioni = document.getElementById("azioni");
+    const pausa = ms => new Promise(r => setTimeout(r, ms));
+
+    const aggiungi = (testo, href) => {
+      const a = document.createElement("a");
+      a.textContent = testo;
+      a.href = href;
+      azioni.appendChild(a);
+    };
+    if (TELEFONO) {
+      aggiungi("Chiamami", "tel:" + TELEFONO.replace(/[^\d+]/g, ""));
+      aggiungi("Scrivimi su WhatsApp", "https://wa.me/" + TELEFONO.replace(/\D/g, ""));
+    }
+    if (FOTO) aggiungi("Guarda le foto", FOTO);
+
+    const SIMBOLI = ["🎓", "🤍", "💗", "🎓", "💖", "💕"];
+    const pioggia = document.getElementById("pioggia");
+
+    function lascia() {
+      if (document.hidden) return;
+      const e = document.createElement("span");
+      e.className = "cade";
+      e.textContent = SIMBOLI[Math.floor(Math.random() * SIMBOLI.length)];
+      e.style.setProperty("--x", Math.random() * 92 + "%");
+      e.style.setProperty("--s", 1.2 + Math.random() * 1.6 + "rem");
+      e.style.setProperty("--d", 6 + Math.random() * 5 + "s");
+      e.style.setProperty("--dx", Math.random() * 80 - 40 + "px");
+      e.style.setProperty("--r0", Math.random() * 80 - 40 + "deg");
+      e.style.setProperty("--r1", Math.random() * 360 - 180 + "deg");
+      e.addEventListener("animationend", () => e.remove());
+      pioggia.appendChild(e);
+    }
+
+    function avviaPioggia() {
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      for (let k = 0; k < 8; k++) setTimeout(lascia, k * 150);
+      setInterval(lascia, 450);
+    }
+
+    async function recita() {
+      await pausa(600);
+      for (let n = 0; n < FRASI.length; n++) {
+        if (n === 1) avviaPioggia();
+        const parole = FRASI[n].split(" ");
+        const frase = document.createElement("p");
+        frase.className = "frase";
+        parole.forEach((testo, k) => {
+          const s = document.createElement("span");
+          s.className = "w";
+          s.style.setProperty("--i", k);
+          s.textContent = testo;
+          frase.append(s, " ");
+        });
+        stage.replaceChildren(frase);
+        requestAnimationFrame(() => requestAnimationFrame(() =>
+          frase.querySelectorAll(".w").forEach(w => w.classList.add("on"))));
+        await pausa(700 + parole.length * 160 + 700 + parole.length * 220);
+        if (n < FRASI.length - 1) {
+          frase.classList.add("esce");
+          await pausa(600);
+        }
+      }
+      azioni.classList.add("on");
+    }
+    recita();
+  </script>
+</body>
+
+</html>
